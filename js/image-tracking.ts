@@ -3,6 +3,8 @@ import { property } from "@wonderlandengine/api/decorators.js";
 import { mat4, quat, quat2, vec3 } from "gl-matrix";
 import { simd } from "wasm-feature-detect";
 
+import { OneEuroFilter } from "./one-euro-filter.js";
+
 function isMobile() {
   return /Android|mobile|iPad|iPhone/i.test(navigator.userAgent);
 }
@@ -46,6 +48,8 @@ export class Marker extends Component {
   markerInfo?: MarkerInfo;
   tracked = false;
 
+  filter = new OneEuroFilter({ minCutOff: 100, beta: 0.005 });
+
   start() {
     MARKER_URLS.push(this.markerUrl);
     MARKERS.push(this);
@@ -71,7 +75,11 @@ export class Marker extends Component {
       this.markerInfo.width / this.markerInfo.dpi / window.devicePixelRatio;
     vec3.scale(tempVec3, tempVec3, 1 / mw);
 
-    quat2.fromRotationTranslation(tempQuat2, tempQuat, tempVec3);
+    quat2.fromRotationTranslation(
+      tempQuat2,
+      tempQuat, //this.filter.filter(Date.now(), tempQuat as Float32Array),
+      tempVec3
+    );
 
     this.object.setTransformLocal(tempQuat2);
     //this.object.rotateAxisAngleDegObject(AxisX, 90);
@@ -214,18 +222,15 @@ export class ImageTracking extends Component {
   displayNextFrame() {
     const curTex = this.videoTextures[this.curVideoTexture];
     if (curTex) this.engine.scene.skyMaterial.texture = curTex;
-    (this.curVideoTexture + 1) & 0x1;
+    this.curVideoTexture = (this.curVideoTexture + 1) & 0x1;
   }
 
   processFrame() {
-    //context_process.fillStyle = 'black';
-    //context_process.fillRect(0, 0, pw, ph);
-
     /* Upload currently tracked frame in texture */
     const curTex = this.videoTextures[this.curVideoTexture];
     if (!curTex) return;
     /* Do this after rendering to avoid blocking texture reads */
-    setTimeout(() => this.videoTextures[this.curVideoTexture].update(), 0);
+    setTimeout(() => curTex.update(), 0);
     this.processingFrame = true;
 
     /* Copy frame to processing canvas and send to worker */

@@ -657,6 +657,11 @@
                 "enabled": true,
                 "material": "77"
             }
+        },
+        "plugins": {
+            "ar-marker-creator": {
+                "enable": true
+            }
         }
     },
     "animations": {},

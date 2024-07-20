@@ -1,6 +1,3 @@
-// Import OneEuroFilter class into the worker.
-importScripts("./one-euro-filter.js");
-
 function patchCopyImageToHeap() {
   ARControllerNFT.prototype._copyImageToHeap = function (image) {
     if (!image) {
@@ -51,18 +48,12 @@ var next = null;
 let ar = null;
 var markerResult = null;
 
-const WARM_UP_TOLERANCE = 3;
-let tickCount = 0;
-
-let filter = null;
-
 function load(msg) {
   if (msg.simd) {
     importScripts("./artoolkitNFT_wasm.js");
   } else {
     importScripts("./artoolkitNFT_wasm.simd.js");
   }
-  filter = new OneEuroFilter({ minCutOff: msg.minCF, beta: msg.beta });
 
   self.addEventListener("artoolkitNFT-loaded", () => {
     console.debug("Loading marker at: ", msg.marker);
@@ -75,24 +66,17 @@ function load(msg) {
       const cameraMatrix = ar.getCameraMatrix();
 
       ar.addEventListener("getNFTMarker", (ev) => {
-        tickCount += 1;
-        if (tickCount > WARM_UP_TOLERANCE) {
-          const mat = filter.filter(Date.now(), ev.data.matrixGL_RH);
-          markerResult = {
-            type: "found",
-            index: ev.data.index,
-            matrix: mat,
-            buffer: next.buffer,
-          };
-        }
+        markerResult = {
+          type: "found",
+          index: ev.data.index,
+          matrix: ev.data.matrixGL_RH,
+          buffer: next.buffer,
+        };
       });
 
-      ar.addEventListener("lostNFTMarker", function (ev) {
-        filter.reset();
-      });
+      ar.addEventListener("lostNFTMarker", function () {});
 
       let markers = msg.marker;
-      // TODO: Assure markers is an array
       ar.loadNFTMarkers(markers, (ids) => {
         for (let i = 0; i < ids.length; ++i) {
           ar.trackNFTMarkerId(i);

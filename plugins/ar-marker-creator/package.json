@@ -1,0 +1,14 @@
+{
+  "name": "ar-marker-creator",
+  "version": "1.0.0",
+  "description": "AR Marker Creator",
+  "main": "main.mjs",
+  "type": "module",
+  "scripts": {},
+  "author": "Jonathan Hale",
+  "license": "MIT",
+  "dependencies": {
+    "@wonderlandengine/editor-api": "^1.2.0-dev.3",
+    "jimp": "^0.22.12"
+  }
+}

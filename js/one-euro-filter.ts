@@ -9,58 +9,64 @@ const exponentialSmoothing = (a, x, xPrev) => {
   return a * x + (1 - a) * xPrev;
 };
 
-class OneEuroFilter {
+export class OneEuroFilter {
+  dCutOff = 1; // period in milliseconds, so default to 1 = 1Hz
+
+  xPrev = null;
+  dxPrev = null;
+  tPrev = null;
+  initialized = false;
+
+  minCutOff: number;
+  beta: number;
+
+  dxHat: Float32Array;
+  xHat: Float32Array;
+
   constructor({ minCutOff, beta }) {
     this.minCutOff = minCutOff;
     this.beta = beta;
-    this.dCutOff = 1; // period in milliseconds, so default to 1 = 1Hz
-
-    this.xPrev = null;
-    this.dxPrev = null;
-    this.tPrev = null;
-    this.initialized = false;
   }
 
   reset() {
     this.initialized = false;
   }
 
-  filter(t, x) {
+  filter(t: number, x: Float32Array) {
     if (!this.initialized) {
       this.initialized = true;
-      this.xPrev = x;
-      this.dxPrev = x.map(() => 0);
+      this.xPrev = x.slice();
+      this.dxPrev = x.slice().fill(0);
       this.tPrev = t;
+
+      this.dxHat = new Float32Array(x.length);
+      this.xHat = new Float32Array(x.length);
+
       return x;
     }
 
     const { xPrev, tPrev, dxPrev } = this;
 
-    //console.log("filter", x, xPrev, x.map((xx, i) => x[i] - xPrev[i]));
-
     const te = t - tPrev;
 
     const ad = smoothingFactor(te, this.dCutOff);
 
-    const dx = [];
-    const dxHat = [];
-    const xHat = [];
-    for (let i = 0; i < x.length; i++) {
+    for (let i = 0; i < x.length; ++i) {
       // The filtered derivative of the signal.
-      dx[i] = (x[i] - xPrev[i]) / te;
-      dxHat[i] = exponentialSmoothing(ad, dx[i], dxPrev[i]);
+      const dx = (x[i] - xPrev[i]) / te;
+      this.dxHat[i] = exponentialSmoothing(ad, dx, dxPrev[i]);
 
       // The filtered signal
-      const cutOff = this.minCutOff + this.beta * Math.abs(dxHat[i]);
+      const cutOff = this.minCutOff + this.beta * Math.abs(this.dxHat[i]);
       const a = smoothingFactor(te, cutOff);
-      xHat[i] = exponentialSmoothing(a, x[i], xPrev[i]);
+      this.xHat[i] = exponentialSmoothing(a, x[i], xPrev[i]);
     }
 
     // update prev
-    this.xPrev = xHat;
-    this.dxPrev = dxHat;
+    xPrev.set(this.xHat);
+    dxPrev.set(this.dxHat);
     this.tPrev = t;
 
-    return xHat;
+    return this.xHat;
   }
 }

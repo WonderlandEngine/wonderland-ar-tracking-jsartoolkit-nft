@@ -15,9 +15,11 @@
     "@wonderlandengine/api": "$@wonderlandengine/api"
   },
   "dependencies": {
-    "@wonderlandengine/api": "^1.2.1",
+    "@wonderlandengine/api": "file:../../../../../Repos/wonderland-engine/js/api/wonderlandengine-api.tgz",
     "@wonderlandengine/components": "^1.1.4",
+    "@wonderlandengine/editor-api": "^1.2.0-dev.3",
     "gl-matrix": "^3.4.3",
+    "sharp": "^0.33.4",
     "wasm-feature-detect": "^1.6.2"
   }
 }
