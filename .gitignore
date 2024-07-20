@@ -1,0 +1,17 @@
+# NPM dependencies
+**/node_modules/
+
+# Packaged project files
+**/deploy/
+
+# Local editor data
+**/.editor/
+
+# Cached editor JS bundle
+**/cache/js/
+
+# Local UI state
+**/imgui.ini
+
+# Blender backup files
+*.blend1
