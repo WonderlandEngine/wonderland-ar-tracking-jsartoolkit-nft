@@ -1,0 +1,23 @@
+stages:
+    - build
+    - deploy
+
+variables:
+    GIT_STRATEGY: fetch
+    GIT_SUBMODULE_STRATEGY: recursive
+
+pages:
+    image: wonderlandengine/editor:1.2.2
+    stage: build
+    variables:
+    script:
+        - WonderlandEditor --windowless --package --project WebARKit.wlp --output public
+        - find ./public/ -type f ! -name '*.gz' -exec gzip -k "{}" \;
+    cache:
+        key: ${CI_COMMIT_REF_SLUG}
+        paths:
+            - cache/
+    artifacts:
+        paths:
+            - 'public'
+
