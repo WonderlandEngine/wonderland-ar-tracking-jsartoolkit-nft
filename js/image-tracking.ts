@@ -229,8 +229,15 @@ export class ImageTracking extends Component {
     /* Upload currently tracked frame in texture */
     const curTex = this.videoTextures[this.curVideoTexture];
     if (!curTex) return;
-    /* Do this after rendering to avoid blocking texture reads */
-    setTimeout(() => curTex.update(), 0);
+    curTex.update();
+    /*
+    Do this after rendering to avoid blocking texture reads - causes issues on newest iPhones
+    setTimeout(() => {
+      const gl = this.engine.canvas.getContext("webgl2");
+      gl.flush();
+      gl.finish();
+    }, 0);
+    */
     this.processingFrame = true;
 
     /* Copy frame to processing canvas and send to worker */
@@ -317,7 +324,6 @@ export class ImageTracking extends Component {
         });
       }
     }
-    // TODO: Call tracking update
   };
 
   update(dt: number) {
