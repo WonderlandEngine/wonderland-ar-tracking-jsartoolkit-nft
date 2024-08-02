@@ -48,7 +48,12 @@ export class Marker extends Component {
   markerInfo?: MarkerInfo;
   tracked = false;
 
-  filter = new OneEuroFilter({ minCutOff: 100, beta: 0.005 });
+  @property.float(0.01)
+  filterBeta: number = 0.01;
+  @property.float(0.0001)
+  filterMinCF: number = 0.0001;
+
+  filter = new OneEuroFilter({ minCutOff: 5, beta: 0.05 });
 
   start() {
     MARKER_URLS.push(this.markerUrl);
@@ -77,17 +82,17 @@ export class Marker extends Component {
 
     quat2.fromRotationTranslation(
       tempQuat2,
-      tempQuat, //this.filter.filter(Date.now(), tempQuat as Float32Array),
+      this.filter.filter(Date.now(), tempQuat as Float32Array),
       tempVec3
     );
 
     this.object.setTransformLocal(tempQuat2);
     //this.object.rotateAxisAngleDegObject(AxisX, 90);
     /* Anchor point should be the marker center */
-    const c = window.devicePixelRatio / 2;
+    const c = mw / 2;
     this.object.translateObject([c, c, 0]);
 
-    //this.object.setScalingLocal(this.originalScaling);
+    this.object.setScalingLocal([mw, mw, mw]);
   }
 }
 
@@ -102,10 +107,8 @@ export class ImageTracking extends Component {
   @property.string("webarkit-camera-params.dat")
   cameraParams!: string;
 
-  @property.float(0.01)
-  filterBeta: number = 0.01;
-  @property.float(0.0001)
-  filterMinCF: number = 0.0001;
+  @property.enum(["environment", "user"])
+  facingMode = 0;
 
   worker?: Worker;
   processingContext?: CanvasRenderingContext2D;
@@ -146,7 +149,7 @@ export class ImageTracking extends Component {
       .getUserMedia({
         audio: false,
         video: {
-          facingMode: "environment",
+          facingMode: ["environment", "user"][this.facingMode],
           frameRate: {
             ideal: 60,
           },
@@ -179,7 +182,7 @@ export class ImageTracking extends Component {
     this.videoWidth = this.video.videoWidth;
     this.videoHeight = this.video.videoHeight;
 
-    const pscale = 640 / Math.max(this.videoWidth, (this.videoHeight / 3) * 4);
+    const pscale = 512 / Math.max(this.videoWidth, (this.videoHeight / 3) * 4);
 
     this.width = this.videoWidth * pscale;
     this.height = this.videoHeight * pscale;
@@ -198,16 +201,11 @@ export class ImageTracking extends Component {
     // const sh = this.videoHeight * sscale;
     // set size (sw, sh)
 
-    const beta = this.filterBeta;
-    const minCF = this.filterMinCF;
-    console.log(beta, minCF);
     this.worker.onmessage = this.processResult;
     this.worker.postMessage({
       type: "load",
       pw: this.processingWidth,
       ph: this.processingHeight,
-      minCF,
-      beta,
       camera_para: this.cameraParams,
       marker: MARKER_URLS,
       simd: await this.hasSimd,
@@ -230,49 +228,47 @@ export class ImageTracking extends Component {
     const curTex = this.videoTextures[this.curVideoTexture];
     if (!curTex) return;
     curTex.update();
-    /*
-    Do this after rendering to avoid blocking texture reads - causes issues on newest iPhones
-    setTimeout(() => {
-      const gl = this.engine.canvas.getContext("webgl2");
-      gl.flush();
-      gl.finish();
-    }, 0);
-    */
+    const gl = this.engine.canvas.getContext("webgl2");
+    gl.flush();
+    gl.finish();
+
     this.processingFrame = true;
 
-    /* Copy frame to processing canvas and send to worker */
-    this.processingContext.drawImage(
-      this.video,
-      0,
-      0,
-      this.videoWidth,
-      this.videoHeight,
-      this.offsetX,
-      this.offsetY,
-      this.width,
-      this.height
-    );
+    setTimeout(() => {
+      /* Copy frame to processing canvas and send to worker */
+      this.processingContext.drawImage(
+        this.video,
+        0,
+        0,
+        this.videoWidth,
+        this.videoHeight,
+        this.offsetX,
+        this.offsetY,
+        this.width,
+        this.height
+      );
 
-    const imageData = this.processingContext.getImageData(
-      0,
-      0,
-      this.processingWidth,
-      this.processingHeight
-    );
+      const imageData = this.processingContext.getImageData(
+        0,
+        0,
+        this.processingWidth,
+        this.processingHeight
+      );
 
-    let data = null;
-    if (!this.bufferCopy) {
-      this.bufferCopy = imageData.data.buffer.slice();
-      data = new Uint8ClampedArray(this.bufferCopy);
-    } else {
-      data = new Uint8ClampedArray(this.bufferCopy);
-      data.set(imageData.data);
-    }
+      let data = null;
+      if (!this.bufferCopy) {
+        this.bufferCopy = imageData.data.buffer.slice();
+        data = new Uint8ClampedArray(this.bufferCopy);
+      } else {
+        data = new Uint8ClampedArray(this.bufferCopy);
+        data.set(imageData.data);
+      }
 
-    // Pass the copied buffer to the worker
-    this.worker.postMessage({ type: "process", image: data }, [
-      this.bufferCopy,
-    ]);
+      // Pass the copied buffer to the worker
+      this.worker.postMessage({ type: "process", image: data }, [
+        this.bufferCopy,
+      ]);
+    }, 0);
   }
 
   processResult = (ev: {
@@ -331,10 +327,10 @@ export class ImageTracking extends Component {
       this.displayNextFrame();
       this.processFrame();
     } else if (!this.trackedFrame && this.processingFrame) {
+      this.displayNextFrame();
       /* While detecting the marker, the frame rate drops extremely
        * low, we don't need to wait for any tracking results */
       this.videoTextures[this.curVideoTexture].update();
-      this.displayNextFrame();
     }
   }
 }
